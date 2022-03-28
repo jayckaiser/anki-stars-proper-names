@@ -1,5 +1,7 @@
+import csv
 import html
 import json
+import re
 import requests
 
 from bs4 import BeautifulSoup
@@ -42,11 +44,11 @@ def _get_verified_star_entry(star_tr):
     cols = star_tr.find_all('td')
 
     return {
-        'constellation': cols[0].text.strip(),
-        'designation'  : cols[1].text.strip(),
-        'proper_name'  : cols[2].text.strip(),
-        'ipa'          : cols[4].text.strip(),
-        'comments'     : cols[3].text.strip(),
+        'Designation'  : cols[1].text.strip(),
+        'Constellation': cols[0].text.strip(),
+        'Proper Name'  : cols[2].text.strip(),
+        'IPA'          : cols[4].text.strip(),
+        'Comments'     : _clean_comment(cols[3].text.strip()),
     }
 
 
@@ -57,11 +59,11 @@ def _get_unverified_star_entry(star_tr):
     cols = star_tr.find_all('td')
 
     return {
-        'constellation': cols[0].text.strip(),
-        'designation'  : cols[1].text.strip(),
-        'proper_name'  : cols[2].text.strip(),
-        'ipa'          : '//',
-        'comments'     : cols[3].text.strip(),
+        'Designation'  : cols[1].text.strip(),
+        'Constellation': cols[0].text.strip(),
+        'Proper Name'  : cols[2].text.strip(),
+        'IPA'          : '//',
+        'Comments'     : _clean_comment(cols[3].text.strip()),
     }
 
 
@@ -76,7 +78,37 @@ def write_star_entries_to_jsonl(file, star_entries):
         )
 
 
+def write_star_entries_to_tsv(file, star_entries):
+    """
+
+    """
+    with open(file, 'w', encoding='utf-8') as tsvfile:
+        field_names = [
+            'Designation',
+            'Constellation',
+            'Proper Name',
+            'IPA',
+            'Comments'
+        ]
+        csv_writer = csv.DictWriter(tsvfile, fieldnames=field_names, delimiter='\t')
+        # csv_writer.writeheader()  # Anki does not use an explicit header, so we can ignore it.
+        for star_entry in star_entries:
+            csv_writer.writerow(star_entry)
+
+
 # TODO: Write a regex cleaner to remove citations from comments.
+def _clean_comment(comment):
+    """
+
+    """
+    comment = comment.replace("[c]", "")
+    comment = comment.replace("[clarification needed]", "")
+    comment = comment.replace("[citation needed]", "")
+    comment = comment.replace("[definition needed]", "")
+    comment = re.sub(r"\[\d+\](: \d+(-\d+)?)?", "", comment)
+    return comment
+
+
 
 if __name__ == '__main__':
 
@@ -84,12 +116,8 @@ if __name__ == '__main__':
     soup = get_soup(stars_url)
     star_entries = get_star_entries(soup)
 
-    print(star_entries[1])
-
     out_file = './data/star_entries.jsonl'
     write_star_entries_to_jsonl(out_file, star_entries)
 
-    # Verify the Unicode matches as expected.
-    with open(out_file, 'r') as jsonfile:
-        lines = jsonfile.readlines()
-        print(lines[1])
+    out_file = './data/star_entries.tsv'
+    write_star_entries_to_tsv(out_file, star_entries)
